@@ -37,13 +37,80 @@ mean(class_guess==test$Survived)
 
 titanic_clean %>% group_by(Pclass,Sex) %>% summarize(mean(Survived==1))
 
-female1_guess <- ifelse(test$Sex=="female"& test$Pclass %in% c(1,2),1,0) 
+female_rich_guess <- ifelse(test$Sex=="female"& test$Pclass %in% c(1,2),1,0) 
 mean(female1_guess==test$Survived)
 
 confusionMatrix(as.factor(female_guess),test$Survived)
 confusionMatrix(as.factor(class_guess),test$Survived)
-confusionMatrix(as.factor(female1_guess),test$Survived)
+confusionMatrix(as.factor(female_rich_guess),test$Survived)
 
 F_meas(test$Survived,as.factor(female_guess))
 F_meas(test$Survived,as.factor(class_guess))
-F_meas(test$Survived,as.factor(female1_guess))
+F_meas(test$Survived,as.factor(female_rich_guess))
+
+
+#Linear and Quadratic discriminant Analysis
+set.seed(1,sample.kind="Rounding")
+(lmodel <- train(Survived~Fare,train,method="lda"))
+(qmodel <- train(Survived~Fare,train,method="qda"))
+mean(predict(lmodel,test)==test$Survived)
+mean(predict(qmodel,test)==test$Survived)
+
+#Logistic Regression
+set.seed(1,sample.kind="Rounding")
+gmodel <- train(Survived~Age,train,method="glm",family=binomial)
+mean(predict(gmodel,test,type="raw")==test$Survived)
+
+gmodel_ <- train(Survived~Sex+Age+Pclass+Fare,train,method="glm",family=binomial)
+mean(predict(gmodel_,test,type="raw")==test$Survived)
+
+#No difference when using all predictors
+gmodel <- train(Survived~.,train,method="glm",family=binomial)
+mean(predict(gmodel,test,type="raw")==test$Survived)
+
+#K Nearest Neighbors
+set.seed(6,sample.kind="Rounding")
+kmodel <- train(Survived~.,data=train,method="knn",tuneGrid=data.frame(k=seq(3,51,2)))
+kmodel$finalModel
+kmodel$bestTune
+ggplot(kmodel)
+mean(predict(kmodel,test)==test$Survived)
+
+
+#Using Cross Validation
+set.seed(8,sample.kind="Rounding")
+kcvmodel <- train(Survived~.,data=train,
+                  method="knn",
+                  tuneGrid=data.frame(k=seq(3,51,2)),
+                  trControl=trainControl(method="cv",number=10,p=0.9))
+kcvmodel$finalModel
+kcvmodel$bestTune
+ggplot(kcvmodel)
+mean(predict(kcvmodel,test)==test$Survived)
+
+#Decision tree rpart
+set.seed(10,sample.kind="Rounding")
+rmodel <- train(Survived~.,
+                  data=train,
+                  method="rpart",
+                  tuneGrid = data.frame(cp = seq(0, 0.05, 0.002)))
+rmodel$finalModel
+rmodel$bestTune
+plot(rmodel$finalModel, margin = 0.1)
+text(rmodel$finalModel, cex = 0.75)
+mean(predict(rmodel,test)==test$Survived)
+
+#Random forest
+
+set.seed(14,sample.kind="Rounding")
+rfmodel <- train(Survived~.,
+                data=train,
+                method="rf",
+                tuneGrid = data.frame(mtry=seq(1,7)),
+                ntree=100)
+rfmodel$finalModel
+rfmodel$bestTune
+mean(predict(rfmodel,test)==test$Survived)
+
+#Most important predictors
+varImp(rfmodel)
