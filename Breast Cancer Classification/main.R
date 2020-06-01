@@ -48,7 +48,25 @@ names(clusters)[clusters == 3]
 #Features seggreegated into different clusters.
 split(names(clusters),clusters)
 
+#Prinicipal Component Analysis for dimensionality reduciton
+pc <- prcomp(x_scaled)
+#biplot(pc)
+summary(pc)$importance[3,]
+plot(summary(pc)$importance[3,])
 
+#Plotting Malignant and Benign types for PC1 and PC2
+data.frame(pc_1 = pc$x[,1], pc_2 = pc$x[,2], tumor = brca$y) %>%
+  ggplot(aes(pc_1, pc_2, color = tumor)) +
+  geom_point() +
+  theme(legend.position="top")
 
+#boxplots of PC 1:10
+for(i in 1:10){
+  boxplot(pc$x[,i] ~ brca$y, main = paste("PC", i))
+}
 
-
+#All in one using gather
+data.frame(type = brca$y, pc$x[,1:10]) %>%
+  gather(key = "PC", value = "value", -type) %>%
+  ggplot(aes(PC, value, fill = type)) +
+  geom_boxplot()
