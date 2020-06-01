@@ -2,9 +2,12 @@ options(digits = 3)
 library(matrixStats)
 library(tidyverse)
 library(caret)
+library(gam)
 library(dslabs)
 library(matrixStats)
+
 data(brca)
+
 
 #Predictors
 dim(brca$x)
@@ -70,3 +73,55 @@ data.frame(type = brca$y, pc$x[,1:10]) %>%
   gather(key = "PC", value = "value", -type) %>%
   ggplot(aes(PC, value, fill = type)) +
   geom_boxplot()
+
+#Create train,test sets
+#set.seed(1) # if using R 3.5 or earlier
+set.seed(1, sample.kind = "Rounding")    # if using R 3.6 or later
+test_index <- createDataPartition(brca$y, times = 1, p = 0.2, list = FALSE)
+test_x <- x_scaled[test_index,]
+test_y <- brca$y[test_index]
+train_x <- x_scaled[-test_index,]
+train_y <- brca$y[-test_index]
+
+mean(train_y=="B")
+mean(test_y=="B")
+
+#kmeans
+set.seed(3,sample.kind="Rounding")
+k <- kmeans(train_x, centers = 2)
+
+#Assigns clusters to observations from x using a kmeans object k
+predict_kmeans <- function(x, k) {
+  centers <- k$centers    # extract cluster centers
+  # calculate distance to cluster centers
+  distances <- sapply(1:nrow(x), function(i){
+    apply(centers, 1, function(y) dist(rbind(x[i,], y)))
+  })
+  max.col(-t(distances))  # select cluster with min distance to center
+}
+
+
+#replace the clusters with B and M respectively
+preds <- ifelse(predict_kmeans(test_x, k) == 1, "B", "M")
+preds
+(acc_kmeans <- mean(preds==test_y))
+
+#Confusion of preds and actual B,M
+confusionMatrix(as_factor(preds),test_y)
+
+#Logistic Regression
+lm <- train(y = train_y,x = train_x, method="glm", family = binomial)
+mean(predict(lr,test_x) == test_y)
+
+#Linear Discriminant Analysis
+ld <- train(y = train_y,x = train_x, method="lda")
+mean(predict(ld,test_x) == test_y)
+
+#Quadratic Discriminant Analysi
+qd <- train(y = train_y,x = train_x, method="qda")
+mean(predict(qd,test_x) == test_y)
+
+#Loess
+loess <- train(train_x, train_y,
+                     method = "gamLoess")
+mean(predict(loess, test_x) == test_y)
