@@ -102,26 +102,80 @@ predict_kmeans <- function(x, k) {
 
 
 #replace the clusters with B and M respectively
-preds <- ifelse(predict_kmeans(test_x, k) == 1, "B", "M")
-preds
-(acc_kmeans <- mean(preds==test_y))
+pred_kmeans <- ifelse(predict_kmeans(test_x, k) == 1, "B", "M")
+pred_kmeans
+(acc_kmeans <- mean(pred_kmeans==test_y))
 
 #Confusion of preds and actual B,M
 confusionMatrix(as_factor(preds),test_y)
 
 #Logistic Regression
-lm <- train(y = train_y,x = train_x, method="glm", family = binomial)
-mean(predict(lr,test_x) == test_y)
+lm <- train(y = train_y,x = train_x, method = "glm", family = binomial)
+pred_lr <- predict(lr,test_x)
+(acc_lr <- mean(pred_lr==test_y))
 
 #Linear Discriminant Analysis
-ld <- train(y = train_y,x = train_x, method="lda")
-mean(predict(ld,test_x) == test_y)
+ld <- train(y = train_y,x = train_x, method = "lda")
+pred_ld <- predict(ld,test_x) 
+(acc_ld <- mean(pred_ld==test_y))
 
-#Quadratic Discriminant Analysi
-qd <- train(y = train_y,x = train_x, method="qda")
-mean(predict(qd,test_x) == test_y)
 
-#Loess
-loess <- train(train_x, train_y,
-                     method = "gamLoess")
-mean(predict(loess, test_x) == test_y)
+#Quadratic Discriminant Analysis
+qd <- train(y = train_y,x = train_x, method = "qda")
+pred_qd <- predict(qd,test_x)
+(acc_qd <- mean(pred_qd==test_y))
+
+
+#Loess, takes time...
+loess <- train(y = train_y, x = train_x, method = "gamLoess")
+pred_loess <- predict(loess, test_x)
+(acc_loess <- mean(pred_loess==test_y))
+
+#KNN
+set.seed(7, sample.kind = "Rounding")
+tuning <- data.frame(k = seq(3, 21, 2))
+knn <- train(train_x, train_y, method = "knn", 
+                   tuneGrid = tuning)
+knn$bestTune
+pred_knn <- predict(knn,test_x)
+(acc_knn <- mean(pred_knn==test_y))
+
+#Random Forest
+
+set.seed(9, sample.kind = "Rounding")
+mtryGrid <- data.frame(mtry = c(3,5,7,9))
+rf <-  train(train_x, train_y, method = "rf",
+                   tuneGrid = mtryGrid, importance = T)
+
+ggplot(rf)
+rf$bestTune
+pred_rf <- predict(rf,test_x)
+(acc_rf <- mean(pred_rf==test_y))
+
+#Variable Importance
+varImp(rf)
+
+#Ensemble model
+#total predictions from 7 models that predict M
+votes <- ((pred_kmeans == "M")+(pred_rf == "M")+(pred_knn == "M")+(pred_qd == "M")+
+  (pred_ld == "M")+(pred_lr == "M")+(pred_loess == "M"))
+
+#Ensemble prediction 4 or more models voted M?
+(pred_ensemble <- ifelse(votes>3,"M","B"))
+(acc_ensemble <- mean(pred_ensemble==test_y))
+
+#All models Accuracies
+models <- c("K means", "Logistic regression", "LDA", "QDA", "Loess",
+            "K nearest neighbors", "Random forest", "Ensemble")
+accuracy <- c(mean(pred_kmeans == test_y),
+              mean(pred_lr == test_y),
+              mean(pred_ld == test_y),
+              mean(pred_qd == test_y),
+              mean(pred_loess == test_y),
+              mean(pred_knn == test_y),
+              mean(pred_rf == test_y),
+              mean(pred_ensemble == test_y))
+data.frame(Model = models, Accuracy = accuracy)
+
+
+
